@@ -1,0 +1,45 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android project files
+        run: |
+          flutter create --platforms=android --org com.livescores --project-name live_scores .
+          rm -rf test
+
+      - name: Internet permission + app name
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.INTERNET' $M || sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' $M
+          sed -i 's#android:label="[^"]*"#android:label="هدف"#' $M
+
+      - run: flutter pub get
+
+      - name: App icon
+        continue-on-error: true
+        run: dart run flutter_launcher_icons
+
+      - run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-scores-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
